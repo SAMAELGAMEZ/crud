@@ -11,6 +11,6 @@ class Student extends Model
 
     // Especificar los campos que se pueden asignar masivamente
     protected $fillable = [
-        'first_name', 'last_name', 'description',
+        'first_name', 'last_name', 'picture','description',
     ];
 }

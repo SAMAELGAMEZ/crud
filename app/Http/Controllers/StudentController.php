@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Student;
+use Illuminate\Support\Facades\Storage;
 
 class StudentController extends Controller
 {
@@ -40,15 +41,31 @@ class StudentController extends Controller
         $validatedData = $request->validate([
             'first_name' => 'required|max:75',
             'last_name' => 'required|max:75',
+            'picture' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'description' => 'required',
         ]);
 
+        // Manejo de la imagen
+        $file = $request->file('picture');
+        if ($file) {
+            $path = Storage::disk('public')->put('Avatars', $file);
+        } else {
+            $path = 'https://picsum.photos/200/300';  // Imagen por defecto si no se sube ninguna
+        }
+
         // Crear el estudiante con los datos validados
-        Student::create($validatedData);
+        Student::create([
+            'first_name' => $validatedData['first_name'],
+            'last_name' => $validatedData['last_name'],
+            'picture' => $path,
+            'description' => $validatedData['description'],
+            'created_at' => now(),
+        ]);
 
         // Redirigir a la página de índice con un mensaje de éxito
         return redirect('/student')->with('success', 'Student is successfully saved');
     }
+
 
     /**
      * Display the specified student.
@@ -88,24 +105,36 @@ class StudentController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // Mostrar toda la información del request
-        dd($request->all());
-
-        // Validar los campos del formulario
+        // Validar los campos del formulario, incluyendo la imagen
         $validatedData = $request->validate([
             'first_name' => 'required|max:75',
             'last_name' => 'required|max:75',
+            'picture' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'description' => 'required',
         ]);
 
         // Buscar el estudiante por ID
         $student = Student::findOrFail($id);
 
-        // Actualizar el estudiante con los datos validados
-        $student->update($validatedData);
+        // Si se ha subido una nueva imagen, manejar la subida
+        if ($request->file('picture')) {
+            $path = Storage::disk('public')->put('Avatars', $request->file('picture'));
+
+            // Actualizar el estudiante con la nueva imagen
+            $student->update([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'picture' => $path,
+                'description' => $request->description,
+                'updated_at' => now(),
+            ]);
+        } else {
+            // Actualizar el estudiante sin cambiar la imagen
+            $student->update($validatedData);
+        }
 
         // Redirigir a la página de índice con un mensaje de éxito
-        return redirect('/student')->with('success', 'Student is successfully updated');
+        return redirect('/student')->with('success', 'Student data is successfully updated');
     }
 
     /**
@@ -119,10 +148,16 @@ class StudentController extends Controller
         // Buscar el estudiante por ID
         $student = Student::findOrFail($id);
 
-        // Eliminar el estudiante
+        // Eliminar la imagen del almacenamiento público si existe
+        if ($student->picture) {
+            Storage::disk('public')->delete($student->picture);
+        }
+
+        // Eliminar el estudiante de la base de datos
         $student->delete();
 
         // Redirigir a la página de índice con un mensaje de éxito
         return redirect('/student')->with('success', 'Student data is successfully deleted');
     }
+
 }
